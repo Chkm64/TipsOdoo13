@@ -1,0 +1,58 @@
+# En este ejemplo tenemos el código para enviar correos desde Odoo 13
+# Empezamos con la parte de Python y luego el XML para generar el template
+# Aquí usamos enviamos un complemento de pago de una factura
+# pago.id -> Id del pago del modulo account.payment
+
+# Python
+mail_template_id = self.env.ref("proyecto.email_complemento_pago").id
+mail_template = self.env["mail.template"].browse(mail_template_id)
+# Adjuntar archivos
+# mail_template.attachment_ids = [(6,0, [attachmentObj.id])]
+mail = mail_template.send_mail(pago.id, force_send=True)
+
+
+# Agregar el mail dentro de la sección del chat
+descripcion_email = self.env["mail.mail"].browse(mail)
+self.env["mail.message"].create({
+  "date": datetime.now(),
+  "email_from": "facturas@gignet.mx",
+  "model": "account.payment",
+  "res_id": pago.id,
+  "message_type": "comment",
+  "subtype_id": 2,
+  # Adjunta los documentos que quieras enviar por correo mandando una lista de los ID's
+  "attachment_ids": [attachmentObj.id, attachmentObj2.id],
+  "body": descripcion_email.body_html,
+  })
+# Eliminar el mail
+descripcion_email.unlink()
+
+# XML las etiquetas de odoo solo se requieren si esta parte será un documento,
+# De lo contrario pueden ir dentro de otra etiqueta de odoo que ya este establecida
+<odoo> 
+  <data noupdate="1">
+    <!--Email template Envío de Complemento de Pago-->
+    <record id="email_complemento_pago" model="mail.template">
+       <field name="name">[Chkm] Email Complemento de Pago</field>
+       <field name="model_id" ref="account.model_account_payment"/>
+       <field name="email_from">facturas@gignet.mx</field>
+       <field name="email_to" >${object.partner_id.email}</field>
+       <field name="subject">Complemento de Pago GigNet</field>
+       <field name="auto_delete" eval="False"/>
+       <field name="body_html" type="html">
+            <div style="margin:0px;padding:0px">
+                <p style="padding:0px; ">
+                    Estimado/a ${object.partner_id.name}<br/><br/>
+                    Gracias por su pago.
+                    Aquí tiene su recibo <strong>${object.name}</strong> de GIGNET S.A. DE C.V. por un importe
+                    de <strong>${format_amount(object.amount, object.currency_id)}</strong>.
+                    <br/><br/>
+                    No dude en contactarnos si tiene alguna pregunta.
+                    <br/><br/>
+                    Saludos cordiales
+                </p>
+            </div>
+        </field>
+    </record>
+  </data>
+</odoo>
